@@ -33,6 +33,7 @@ class Python_2048Env(gym.Env, Frame):
     metadata = {'render.modes': ['human']}
     score = 0
     rendering = False
+    previous_score = -1
 
     def __init__(self):
 
@@ -82,6 +83,7 @@ class Python_2048Env(gym.Env, Frame):
         self.game_over = False
         self.init_matrix()
         self.score = 0
+        self.previous_score = -1
         if self.rendering:
             self.update_grid_cells()
 
@@ -107,6 +109,10 @@ class Python_2048Env(gym.Env, Frame):
                     self.game_over = True
 
     def get_reward(self):
+        # Discourage moves that make no progress
+        if self.score == self.previous_score:
+            return self.get_largest_tile() * -1
+        self.previous_score = self.score
         return self.get_largest_tile()
 
     def get_state(self):
