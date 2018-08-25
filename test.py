@@ -1,16 +1,14 @@
+# Just disables the warning, doesn't enable AVX/FMA
+import os
+from statistics import median, mean
+
 import gym
 import gym_python_2048
-import random
 import numpy as np
 import tflearn
 from tflearn.layers.core import input_data, dropout, fully_connected
 from tflearn.layers.estimator import regression
-from statistics import median, mean
-from collections import Counter
 
-
-# Just disables the warning, doesn't enable AVX/FMA
-import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 env = gym.make('python_2048-v0')
 
@@ -26,8 +24,6 @@ def initial_test_function():
             action = env.action_space.sample()
             observation, reward, done, info = env.step(action)
             if done:
-                # print("Episode finished after {} timesteps".format(t+1))
-
                 if reward > highest_score:
                     highest_score = reward
                 break
@@ -35,19 +31,16 @@ def initial_test_function():
     print("Highest Tile: ", highest_score)
 
 
-LR = 1e-3
+LR = .01
 goal_steps = 10000
-score_requirement = 2000
-initial_games = 1000
+score_requirement = 20
+initial_games = 2000
 
 
 def initial_population():
-    # [OBS, MOVES]
-    training_data = []
-    # all scores:
-    scores = []
-    # just the scores that met our threshold:
-    accepted_scores = []
+    training_data = []  # [OBS, MOVES]
+    scores = []  # all scores:
+    accepted_scores = []  # just the scores that met our threshold:
     # iterate through however many games we want:
     for _ in range(initial_games):
         score = 0
@@ -65,8 +58,11 @@ def initial_population():
             # so we'll store the previous observation here, pairing
             # the prev observation to the action we'll take.
             if len(prev_observation) > 0:
-                numpy_observation = np.array(prev_observation).reshape(16)
+                numpy_observation = np.array(prev_observation[0]).reshape(16)
+                numpy_observation = np.append(
+                    numpy_observation, prev_observation[1])
                 game_memory.append([numpy_observation, action])
+
             prev_observation = observation
             score += reward
             if done:
@@ -91,8 +87,6 @@ def initial_population():
     # some stats here, to further illustrate the neural network magic!
     print('Average accepted score:', mean(accepted_scores))
     print('Median score for accepted scores:', median(accepted_scores))
-    # print(Counter(accepted_scores))
-
     return training_data
 
 
@@ -100,19 +94,19 @@ def neural_network_model(input_size):
 
     network = input_data(shape=[None, input_size, 1], name='input')
 
-    network = fully_connected(network, 128, activation='relu')
+    network = fully_connected(network, 16, activation='relu')
     network = dropout(network, 0.8)
 
-    network = fully_connected(network, 256, activation='relu')
+    network = fully_connected(network, 32, activation='relu')
     network = dropout(network, 0.8)
 
-    network = fully_connected(network, 512, activation='relu')
+    network = fully_connected(network, 64, activation='relu')
     network = dropout(network, 0.8)
 
-    network = fully_connected(network, 256, activation='relu')
+    network = fully_connected(network, 32, activation='relu')
     network = dropout(network, 0.8)
 
-    network = fully_connected(network, 128, activation='relu')
+    network = fully_connected(network, 16, activation='relu')
     network = dropout(network, 0.8)
 
     network = fully_connected(network, 4, activation='softmax')
@@ -126,7 +120,6 @@ def neural_network_model(input_size):
 def train_model(training_data, model=False):
     X = np.array([i[0] for i in training_data]).reshape(
         -1, len(training_data[0][0]), 1)
-    # X = [i[0] for i in training_data]
     y = [i[1] for i in training_data]
     print(len(X))
     print(len(y))
@@ -151,7 +144,7 @@ for each_game in range(10):
     game_memory = []
     prev_obs = []
     env.reset()
-    for _ in range(goal_steps):
+    for _ in range(1000):
         env.render()
 
         if len(prev_obs) == 0:
@@ -161,14 +154,16 @@ for each_game in range(10):
                 model.predict(prev_obs.reshape(-1, len(prev_obs), 1))[0])
 
         choices.append(action)
-
+        print(action)
         new_observation, reward, done, info = env.step(action)
 
-        new_observation = np.array(new_observation).reshape(16)
+        new_observation = np.array(new_observation[0]).reshape(16)
+        new_observation = np.append(new_observation, new_observation[1])
 
         prev_obs = new_observation
         game_memory.append([new_observation, action])
         score += reward
+
         if done:
             break
 

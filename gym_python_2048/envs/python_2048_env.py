@@ -33,7 +33,9 @@ class Python_2048Env(gym.Env, Frame):
     metadata = {'render.modes': ['human']}
     score = 0
     rendering = False
-    previous_score = -1
+    previous_score = 0
+    moves = 0
+    reward = 0
 
     def __init__(self):
 
@@ -45,34 +47,6 @@ class Python_2048Env(gym.Env, Frame):
         self.action_space = spaces.Discrete(4)
 
     def step(self, action):
-        """
-
-        Parameters
-        ----------
-        action :
-
-        Returns
-        -------
-        ob, reward, episode_over, info : tuple
-            ob (object) :
-                an environment-specific object representing your observation of
-                the environment.
-            reward (float) :
-                amount of reward achieved by the previous action. The scale
-                varies between environments, but the goal is always to increase
-                your total reward.
-            episode_over (bool) :
-                whether it's time to reset the environment again. Most (but not
-                all) tasks are divided up into well-defined episodes, and done
-                being True indicates the episode has terminated. (For example,
-                perhaps the pole tipped too far, or you lost your last life.)
-            info (dict) :
-                 diagnostic information useful for debugging. It can sometimes
-                 be useful for learning (for example, it might contain the raw
-                 probabilities behind the environment's last state change).
-                 However, official evaluations of your agent are not allowed to
-                 use this for learning.
-        """
         self.take_action(action)
         reward = self.get_reward()
         ob = self.get_state()
@@ -83,7 +57,8 @@ class Python_2048Env(gym.Env, Frame):
         self.game_over = False
         self.init_matrix()
         self.score = 0
-        self.previous_score = -1
+        self.moves = 0
+        self.previous_score = 0
         if self.rendering:
             self.update_grid_cells()
 
@@ -97,6 +72,7 @@ class Python_2048Env(gym.Env, Frame):
         self.update_grid_cells()
 
     def take_action(self, action):
+        self.moves += 1
         if action in self.commands:
             self.matrix, done = self.commands[action](self.matrix)
             if done:
@@ -110,13 +86,21 @@ class Python_2048Env(gym.Env, Frame):
 
     def get_reward(self):
         # Discourage moves that make no progress
-        if self.score == self.previous_score:
+        """if self.score == self.previous_score:
             return self.get_largest_tile() * -1
+        return self.get_largest_tile() * self.score"""
+        if self.score == self.previous_score:
+            return -1
+        else:
+            self.previous_score = self.score
+            return 1
+            '''
+        reward = self.score - self.previous_score
         self.previous_score = self.score
-        return self.get_largest_tile()
+        return reward'''
 
     def get_state(self):
-        return self.matrix
+        return self.matrix, self.moves
 
     def init_grid(self):
         self.grid_cells = []
